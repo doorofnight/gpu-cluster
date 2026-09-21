@@ -1,0 +1,43 @@
+# MinerU 4.0 api-server 部署（GPU 集群）
+# 用法：
+#   1. docker compose up -d
+#   2. 验证：curl http://<host>:8000/health
+#   3. 业务端（Linux 机器）配置 MINERU_API_URL=http://<host>:8000
+
+services:
+  mineru-api:
+    build: .
+    image: mineru-api:4.0
+    container_name: mineru-api
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      MINERU_MODEL_SOURCE: modelscope
+      MINERU_TIER: standard
+    volumes:
+      # 模型持久化：重启容器无需重新下载
+      - mineru-models:/root/.mineru/models
+      # 解析临时产物（客户端需取回图片等产物时保留）
+      - mineru-output:/app/output
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  mineru-models:
+  mineru-output:
